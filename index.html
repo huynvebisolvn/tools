@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tools Dashboard - Ebisol</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="app">
+    <div class="windows-container" id="windowsContainer">
+      <!-- Windows will be dynamically added here -->
+    </div>
+    
+    <div class="footer">
+      Tools Dashboard - Nguyen Van Huy
+    </div>
+  </div>
+  
+  <script>
+    // Configuration: list of pages to display
+    // Hướng dẫn thêm tools mới:
+    // 1. Tạo file HTML mới trong thư mục src/
+    // 2. Thêm đường dẫn tools vào mảng pages bên dưới
+    // 3. Định dạng: { name: 'Tên Tools', path: 'src/ten-file.html' }
+    const pages = [
+      { name: 'java-api-sha1', path: 'src/java-api-sha1.html'},
+      { name: 'external-api-signature', path: 'src/external-api-signature.html'},
+      // Add more pages here as needed
+    ];
+    
+    // Function to create a window for each page
+    function createWindow(page) {
+      const windowDiv = document.createElement('div');
+      windowDiv.className = 'window';
+      
+      windowDiv.innerHTML = `
+        <div class="window-header">
+          <div class="window-title">${page.name}</div>
+          <div class="window-actions">
+            <button class="window-btn" onclick="refreshWindow('${page.path}')" title="Làm mới">↻</button>
+            <button class="window-btn" onclick="openInNewTab('${page.path}')" title="Mở tab mới">⇱</button>
+          </div>
+        </div>
+        <div class="window-content">
+          <iframe src="${page.path}" id="iframe-${page.path.replace(/[^a-zA-Z0-9]/g, '-')}" sandbox="allow-scripts allow-same-origin"></iframe>
+        </div>
+      `;
+      
+      return windowDiv;
+    }
+    
+    // Function to refresh a specific window
+    function refreshWindow(path) {
+      const iframeId = 'iframe-' + path.replace(/[^a-zA-Z0-9]/g, '-');
+      const iframe = document.getElementById(iframeId);
+      if (iframe) {
+        iframe.src = iframe.src;
+      }
+    }
+    
+    // Function to open page in new tab
+    function openInNewTab(path) {
+      window.open(path, '_blank');
+    }
+    
+    // Initialize: create windows for all pages
+    function init() {
+      const container = document.getElementById('windowsContainer');
+      pages.forEach(page => {
+        const window = createWindow(page);
+        container.appendChild(window);
+      });
+    }
+    
+    // Run initialization when DOM is loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>

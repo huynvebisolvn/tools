@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>SHA1 Generator</title>
+  <style>
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 36px auto; max-width: 760px; }
+    h1 { color:#2c3e50; }
+    input, button { padding:8px 12px; font-size:16px; margin-top:6px; margin-bottom:12px; width:100%; box-sizing:border-box; }
+    button { background:#0078d4; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+    button:hover{ background:#005ea2; }
+    .copy-btn{ width:auto; background:#28a745; }
+    .result{ background:#f8f9fa; padding:12px; border-radius:6px; font-family:monospace; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+  <div style="margin: 10px;">
+    <h1>SHA1 Generator</h1>
+
+    <label>RSVID:</label>
+    <input id="rsvid" placeholder="例: 380918837">
+
+    <label>作成日時 (Unix μs または YYYYMMDDHH24MISSUS):</label>
+    <input id="timeInput" placeholder="例: 1761268617679051 または 20251024101657679051">
+
+    <button onclick="generateSHA1()">Generator</button>
+
+    <div class="result" id="output"></div>
+    <button id="copyBtn" class="copy-btn" style="display:none;" onclick="copySHA1()">📋 Copy SHA1</button>
+  </div>
+  <script>
+    let lastSHA1 = "";
+
+    function pad(n, w=2){ return n.toString().padStart(w, '0'); }
+
+    async function generateSHA1(){
+      const rsvid = document.getElementById('rsvid').value.trim();
+      const timeInput = document.getElementById('timeInput').value.trim();
+      const out = document.getElementById('output');
+      const copyBtn = document.getElementById('copyBtn');
+      out.textContent = '';
+      copyBtn.style.display = 'none';
+      lastSHA1 = "";
+
+      if(!rsvid || !timeInput){
+        out.textContent = '⚠️ RSVID và thời gian không được để trống.';
+        return;
+      }
+
+      let formatted = '';
+      let inputType = '';
+
+      // Nếu là Unix microseconds (15-17 chữ số)
+      if(/^\d{15,17}$/.test(timeInput)){
+        inputType = 'unix';
+        const unixMicro = BigInt(timeInput); // dùng BigInt để an toàn với 64-bit
+        // milliseconds since epoch as BigInt (floor)
+        const msSinceEpoch = unixMicro / 1000n; // BigInt division -> milliseconds integer
+        const microRemainder = Number(unixMicro % 1000000n); // get microsecond tail for US part
+
+        // JST = UTC + 9 hours -> cộng 9*3600*1000 ms
+        const jstMs = Number(msSinceEpoch) + 9 * 3600 * 1000;
+
+        // Tạo Date từ jstMs BUT dùng các hàm UTC để chắc chắn không phụ thuộc timezone local
+        const jstDate = new Date(jstMs);
+
+        // Lấy các thành phần bằng getUTC* (vì jstMs đã là milliseconds cho JST)
+        const Y = jstDate.getUTCFullYear();
+        const M = pad(jstDate.getUTCMonth() + 1);
+        const D = pad(jstDate.getUTCDate());
+        const h = pad(jstDate.getUTCHours());
+        const m = pad(jstDate.getUTCMinutes());
+        const s = pad(jstDate.getUTCSeconds());
+        const us = pad(microRemainder, 6);
+
+        formatted = `${Y}${M}${D}${h}${m}${s}${us}`;
+
+      // Nếu đã nhập dạng YYYYMMDDHH24MISSUS (20 chữ số)
+      } else if(/^\d{20}$/.test(timeInput)){
+        inputType = 'formatted';
+        // Giữ nguyên (giả định user đã nhập JST hoặc form đúng)
+        formatted = timeInput;
+      } else {
+        out.textContent = '⚠️ Định dạng thời gian không hợp lệ. Vui lòng nhập Unix μs (15-17 chữ số) hoặc YYYYMMDDHH24MISSUS (20 chữ số).';
+        return;
+      }
+
+      const concat = rsvid + formatted;
+
+      // Tính SHA1 bằng Web Crypto API
+      const encoder = new TextEncoder();
+      const data = encoder.encode(concat);
+      const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2,'0')).join('');
+
+      // Hiển thị JST đọc được (nếu input là formatted, ta parse; nếu là unix, ta đã tính JST)
+      let jstReadable = '';
+      if(inputType === 'formatted'){
+        const y = formatted.slice(0,4);
+        const mo = formatted.slice(4,6);
+        const d = formatted.slice(6,8);
+        const hh = formatted.slice(8,10);
+        const mi = formatted.slice(10,12);
+        const ss = formatted.slice(12,14);
+        const usv = formatted.slice(14);
+        jstReadable = `${y}-${mo}-${d} ${hh}:${mi}:${ss}.${usv} (JST 推定)`;
+      } else {
+        // For unix path, reconstruct same as formatted for user clarity
+        const y = formatted.slice(0,4);
+        const mo = formatted.slice(4,6);
+        const d = formatted.slice(6,8);
+        const hh = formatted.slice(8,10);
+        const mi = formatted.slice(10,12);
+        const ss = formatted.slice(12,14);
+        const usv = formatted.slice(14);
+        jstReadable = `${y}-${mo}-${d} ${hh}:${mi}:${ss}.${usv} (JST)`;
+      }
+
+      out.textContent =
+        `RSVID: ${rsvid}\n` +
+        `作成日時(YYYYMMDDHH24MISSUS): ${formatted}\n` +
+        `JST 時刻: ${jstReadable}\n` +
+        `連結文字列: ${concat}\n` +
+        `SHA1: ${hashHex}`;
+
+      lastSHA1 = hashHex;
+      copyBtn.style.display = 'inline-block';
+    }
+
+    async function copySHA1(){
+      if(!lastSHA1) return;
+      try{
+        await navigator.clipboard.writeText(lastSHA1);
+        const btn = document.getElementById('copyBtn');
+        const old = btn.textContent;
+        btn.textContent = "✅ Copied!";
+        setTimeout(()=> btn.textContent = old, 1400);
+      } catch(e){
+        alert("⚠️ Không thể copy SHA1 vào clipboard.");
+      }
+    }
+  </script>
+</body>
+</html>
