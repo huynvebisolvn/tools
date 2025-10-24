@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>cURL Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        label, input, textarea, button, select { display: block; margin-bottom: 10px; }
+        input[type="text"], textarea, select { width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+        button:hover { background-color: #0056b3; }
+        #copyButton { background-color: #28a745; } /* Green for copy button */
+        #copyButton:hover { background-color: #218838; }
+        pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .button-group { display: flex; align-items: center; }
+        #statusMessage { margin-top: 10px; color: red; }
+    </style>
+</head>
+<body>
+    <h1>cURL Command Generator</h1>
+
+    <label for="method">HTTP Method:</label>
+    <select id="method">
+        <option value="GET" selected>GET</option> <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="PATCH">PATCH</option>
+        <option value="DELETE">DELETE</option>
+    </select>
+
+    <label for="url">URL (e.g., https://api.example.com/data?param=value):</label>
+    <input type="text" id="url" value="https://external-api.dev.ebica.jp/v2/mpos/healthcheck"> <label for="key">Key (for Authorization header):</label>
+    <input type="text" id="key" value="EV8ZRDPJSVBTF8Z85JKWEL0HMAFKTJIJTNESYOFX">
+
+    <label for="secret">Secret (for Signature header):</label>
+    <input type="text" id="secret" value="O4YXZ58FGSYMEDNCUK7YSQDDKTMFKJWQKJ4O42QU">
+    <small>Note: Secret should be at least 16 characters for HMAC-SHA256 best practices.</small>
+
+    <label for="body">Body (JSON - for POST, PUT, PATCH):</label>
+    <textarea id="body" rows="8"></textarea>
+
+    <div class="button-group">
+        <button onclick="generateCurl()">Generate cURL</button>
+        <button id="copyButton" onclick="copyCurlCommand()">Copy cURL Command</button>
+    </div>
+
+    <div id="statusMessage"></div>
+
+    <h2>Generated cURL Command:</h2>
+    <pre id="curlOutput"></pre>
+
+    <script>
+        // Helper function to convert ArrayBuffer to Base64 string
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+
+        async function generateHMACSignature(data, secret) {
+            const encoder = new TextEncoder();
+            const keyData = encoder.encode(secret);
+            const messageData = encoder.encode(data);
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.textContent = ''; // Clear previous messages
+
+            try {
+                // Import the secret key
+                const key = await crypto.subtle.importKey(
+                    'raw',                         // format of the key
+                    keyData,                       // ArrayBuffer of the key
+                    { name: 'HMAC', hash: 'SHA-256' }, // algorithm details
+                    false,                         // not extractable
+                    ['sign']                       // can be used for signing
+                );
+
+                // Sign the data
+                const signature = await crypto.subtle.sign(
+                    'HMAC',                        // algorithm name
+                    key,                           // imported key
+                    messageData                    // data to sign
+                );
+
+                // Convert signature (ArrayBuffer) to Base64 string
+                return arrayBufferToBase64(signature);
+
+            } catch (error) {
+                console.error("Error generating HMAC-SHA256 signature:", error);
+                statusMessage.textContent = `Error generating signature: ${error.message}. Check browser console for details.`;
+                return "ERROR_SIGNATURE";
+            }
+        }
+
+        async function generateCurl() {
+            const method = document.getElementById('method').value;
+            const url = document.getElementById('url').value;
+            const key = document.getElementById('key').value;
+            const secret = document.getElementById('secret').value;
+            let body = document.getElementById('body').value;
+            const curlOutput = document.getElementById('curlOutput');
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.textContent = ''; // Clear previous messages
+
+            // Construct the raw signature content
+            let rawSignatureContent = url;
+
+            // Only append body if the method typically uses a body
+            if (['POST', 'PUT', 'PATCH'].includes(method)) {
+                rawSignatureContent += body;
+            }
+
+            // Replace all newline characters from the combined signature content
+            const signatureContent = rawSignatureContent.replace(/[\r\n]+/g, '');
+
+            // Generate HMAC-SHA256 signature
+            let signatureHeaderValue = '';
+            if (secret) { // Only attempt to generate if secret is provided
+                 signatureHeaderValue = await generateHMACSignature(signatureContent, secret);
+            } else {
+                 statusMessage.textContent = "Warning: Secret is empty. Signature header will be empty or invalid.";
+                 signatureHeaderValue = "NO_SECRET_PROVIDED"; // Or just leave empty
+            }
+
+
+            let authorizationHeader = `Authorization: ${key}`;
+            // Changed X-Signature to Signature
+            let signatureHeader = `Signature: ${signatureHeaderValue}`; 
+
+
+            let curlCommand = `curl -X ${method} "${url}" \\`;
+
+            // Add Content-Type header only for methods that typically send a body
+            if (['POST', 'PUT', 'PATCH'].includes(method)) {
+                curlCommand += `\n  -H "Content-Type: application/json" \\`;
+            }
+
+            // Add the fixed X-Forwarded-Proto header
+            curlCommand += `\n  -H "X-Forwarded-Proto:https" \\`;
+
+            curlCommand += `\n  -H "${authorizationHeader}" \\`;
+            curlCommand += `\n  -H "${signatureHeader}"`;
+
+            // Add body only for methods that typically send a body
+            if (['POST', 'PUT', 'PATCH'].includes(method)) {
+                // Escape single quotes within the body for curl -d
+                const escapedBody = body.replace(/'/g, "'\\''");
+                curlCommand += ` \\\n  -d '${escapedBody}'`;
+            }
+
+            curlOutput.textContent = curlCommand;
+        }
+
+        async function copyCurlCommand() {
+            const curlText = document.getElementById('curlOutput').textContent;
+            try {
+                await navigator.clipboard.writeText(curlText);
+                alert('cURL command copied to clipboard!');
+            } catch (err) {
+                console.error('Failed to copy cURL command: ', err);
+                alert('Failed to copy cURL command. Please copy manually. (Requires secure context - HTTPS or localhost)');
+            }
+        }
+
+        // Initial generation when the page loads
+        generateCurl();
+    </script>
+</body>
+</html>

@@ -3,364 +3,83 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Caro 2025 Ebisol</title>
-  <style>
-    :root{--bg:#0f172a;--card:#0b1220;--accent:#10b981;--muted:#94a3b8}
-    html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,#071022 0%,#071827 100%);color:#e6eef8}
-    .app{max-width:980px;margin:18px auto;padding:12px}
-    .title{display:flex;gap:12px;align-items:center;justify-content:space-between}
-    .brand{font-size:20px;font-weight:700}
-    .by{font-size:13px;color:var(--muted)}
-    .card{background:rgba(255,255,255,0.03);padding:12px;border-radius:12px;margin-top:12px;box-shadow:0 6px 20px rgba(2,6,23,0.6)}
-    #boardCanvas{width:100%;height:calc(100vw - 48px);max-height:720px;background:#f8f9fb;border-radius:8px;touch-action:none}
-    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-    .btn{background:var(--accent);color:#052018;padding:8px 12px;border-radius:8px;border:none;font-weight:600}
-    .btn.secondary{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.06)}
-    .status{margin-top:8px;color:var(--muted)}
-    .radio-group{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap}
-    .radio-item{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
-    .radio-item input[type=radio]{cursor:pointer}
-    .modal{position:fixed;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(2,6,23,0.6),rgba(2,6,23,0.8));z-index:80}
-    .modal .box{background:var(--card);padding:14px;border-radius:12px;width:94%;max-width:420px}
-    label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
-    input[type=text],input[type=number]{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);margin-top:6px;background:transparent;color:inherit}
-    table{width:100%;border-collapse:collapse;margin-top:8px}
-    th,td{padding:6px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03)}
-    @media(min-width:720px){#boardCanvas{height:560px}}
-    .footer{font-size:12px;color:var(--muted);margin-top:12px}
-  </style>
+  <title>Tools Dashboard - Ebisol</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
   <div class="app">
-    <div class="title">
-      <div>
-        <div class="brand">Caro 2025 Ebisol</div>
-        <div class="by">Viết bởi Thụ Ebisol</div>
-      </div>
-      <div style="text-align:right">
-        <div class="by">Game: caro (Gomoku) — 5 liên tiếp thắng</div>
-      </div>
+    <div class="windows-container" id="windowsContainer">
+      <!-- Windows will be dynamically added here -->
     </div>
-
-    <div class="card">
-      <canvas id="boardCanvas"></canvas>
-      <div class="controls">
-        <button class="btn" id="newBtn">Bắt đầu mới</button>
-        <button class="btn secondary" id="undoBtn">Hoàn tác</button>
-        <button class="btn secondary" id="aiBtn">Chơi với Bot: <span id="aiMode">Bật</span></button>
-        <button class="btn secondary" id="sizeBtn">Kích thước: <span id="sizeLabel">15</span>x<span id="sizeLabel2">15</span></button>
-        <button class="btn secondary" id="leaderBtn">Bảng điểm</button>
-      </div>
-      <div class="radio-group">
-        <div class="radio-item">
-          <input type="radio" id="playerFirst" name="firstMove" value="player" checked>
-          <label for="playerFirst" style="margin:0;cursor:pointer">Người chơi đi trước</label>
-        </div>
-        <div class="radio-item">
-          <input type="radio" id="botFirst" name="firstMove" value="bot">
-          <label for="botFirst" style="margin:0;cursor:pointer">Bot đi trước</label>
-        </div>
-      </div>
-      <div class="status" id="status">Lượt: Người chơi (Đen)</div>
-    </div>
-
-    <div class="card footer">
-      <div>Hướng dẫn nhanh: Chạm/quay để đặt quân. Bot chơi sau khi bạn đặt (nếu bật). Khi có người thắng sẽ xuất hiện hộp nhập tên & số điểm để lưu vào bảng điểm.</div>
+    
+    <div class="footer">
+      Tools Dashboard - Nguyen Van Huy
     </div>
   </div>
-
-  <!-- Modal for winner / save -->
-  <div id="modal" class="modal" style="display:none">
-    <div class="box">
-      <div id="modalTitle" style="font-weight:700">Người thắng!</div>
-      <div id="modalText" style="color:var(--muted);margin-top:6px">...</div>
-      <label>Tên (hiển thị):</label>
-      <input type="text" id="playerName" placeholder="Nhập tên...">
-      <label>Số điểm:</label>
-      <input type="number" id="playerScore" min="0">
-      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
-        <button class="btn secondary" id="dismissBtn">Đóng</button>
-        <button class="btn" id="saveScoreBtn">Lưu điểm</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Leaderboard modal -->
-  <div id="leaderModal" class="modal" style="display:none">
-    <div class="box">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-weight:700">Bảng điểm</div>
-        <button class="btn secondary" id="clearScoresBtn">Xóa</button>
-      </div>
-      <div style="color:var(--muted);margin-top:6px">Top lưu trữ (local trên trình duyệt)</div>
-      <table id="leaderTable"><thead><tr><th>#</th><th>Tên</th><th>Điểm</th></tr></thead><tbody></tbody></table>
-      <div style="display:flex;justify-content:flex-end;margin-top:8px">
-        <button class="btn" id="closeLeaderBtn">Đóng</button>
-      </div>
-    </div>
-  </div>
-
+  
   <script>
-    // Basic Gomoku implementation with simple heuristic bot
-    const canvas = document.getElementById('boardCanvas');
-    const ctx = canvas.getContext('2d');
-    let size = 15;
-    let board = [];// 0 empty, 1 black(player), 2 white(bot)
-    let cellSize = 40;
-    let current = 1; // 1 player(black) starts
-    let aiEnabled = true;
-    let moves = [];
-    let playerStarts = true; // track who starts first
-
-    function resizeCanvas(){
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * devicePixelRatio;
-      canvas.height = rect.height * devicePixelRatio;
-      ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
-      draw();
+    // Configuration: list of pages to display
+    // Hướng dẫn thêm tools mới:
+    // 1. Tạo file HTML mới trong thư mục src/
+    // 2. Thêm đường dẫn tools vào mảng pages bên dưới
+    // 3. Định dạng: { name: 'Tên Tools', path: 'src/ten-file.html' }
+    const pages = [
+      { name: 'java-api-sha1', path: 'src/java-api-sha1.html'},
+      { name: 'external-api-signature', path: 'src/external-api-signature.html'},
+      // Add more pages here as needed
+    ];
+    
+    // Function to create a window for each page
+    function createWindow(page) {
+      const windowDiv = document.createElement('div');
+      windowDiv.className = 'window';
+      
+      windowDiv.innerHTML = `
+        <div class="window-header">
+          <div class="window-title">${page.name}</div>
+          <div class="window-actions">
+            <button class="window-btn" onclick="refreshWindow('${page.path}')" title="Làm mới">↻</button>
+            <button class="window-btn" onclick="openInNewTab('${page.path}')" title="Mở tab mới">⇱</button>
+          </div>
+        </div>
+        <div class="window-content">
+          <iframe src="${page.path}" id="iframe-${page.path.replace(/[^a-zA-Z0-9]/g, '-')}" sandbox="allow-scripts allow-same-origin"></iframe>
+        </div>
+      `;
+      
+      return windowDiv;
     }
-
-    function initBoard(){
-      board = Array.from({length:size},()=>Array(size).fill(0));
-      moves = [];
-      // Check who starts first based on radio button selection
-      playerStarts = document.getElementById('playerFirst').checked;
-      current = playerStarts ? 1 : 2;
-      if(playerStarts){
-        document.getElementById('status').innerText = 'Lượt: Người chơi (Đen)';
-      } else {
-        document.getElementById('status').innerText = 'Lượt: Bot (Trắng)';
-      }
-      draw();
-      // If bot starts first, make the first move
-      if(!playerStarts && aiEnabled){
-        setTimeout(()=>{ aiMove(); },200);
-      }
-    }
-
-    function draw(){
-      const w = canvas.width / devicePixelRatio;
-      const h = canvas.height / devicePixelRatio;
-      ctx.clearRect(0,0,w,h);
-      // compute cell size
-      const pad = 30;
-      const cs = Math.min((w - pad*2)/ (size-1), (h - pad*2)/(size-1));
-      cellSize = cs;
-      // origin
-      const ox = (w - cs*(size-1))/2;
-      const oy = (h - cs*(size-1))/2;
-      // grid lines
-      ctx.strokeStyle = '#c8d4e3';
-      ctx.lineWidth = 1;
-      for(let i=0;i<size;i++){
-        ctx.beginPath();
-        ctx.moveTo(ox, oy + i*cs);
-        ctx.lineTo(ox + (size-1)*cs, oy + i*cs);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(ox + i*cs, oy);
-        ctx.lineTo(ox + i*cs, oy + (size-1)*cs);
-        ctx.stroke();
-      }
-      // coordinate labels
-      ctx.fillStyle = '#334155';
-      ctx.font = `${Math.max(10, cs * 0.28)}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      // horizontal labels (top and bottom)
-      for(let i=0;i<size;i++){
-        const x = ox + i*cs;
-        ctx.fillText(i, x, oy - cs*0.5);
-        ctx.fillText(i, x, oy + (size-1)*cs + cs*0.5);
-      }
-      // vertical labels (left and right)
-      for(let i=0;i<size;i++){
-        const y = oy + i*cs;
-        ctx.fillText(i, ox - cs*0.5, y);
-        ctx.fillText(i, ox + (size-1)*cs + cs*0.5, y);
-      }
-      // stones
-      for(let r=0;r<size;r++)for(let c=0;c<size;c++){
-        const v = board[r][c];
-        if(v===0) continue;
-        const x = ox + c*cs;
-        const y = oy + r*cs;
-        ctx.beginPath();
-        ctx.arc(x,y,cs*0.42,0,Math.PI*2);
-        if(v===1){
-          // black with slight gradient
-          const g = ctx.createRadialGradient(x-cs*0.12,y-cs*0.12,cs*0.02,x,y,cs*0.42);
-          g.addColorStop(0,'#444'); g.addColorStop(1,'#000');
-          ctx.fillStyle = g; ctx.fill();
-        } else {
-          // white stone with stroke
-          ctx.fillStyle = '#fff'; ctx.strokeStyle='#999'; ctx.fill(); ctx.stroke();
-        }
+    
+    // Function to refresh a specific window
+    function refreshWindow(path) {
+      const iframeId = 'iframe-' + path.replace(/[^a-zA-Z0-9]/g, '-');
+      const iframe = document.getElementById(iframeId);
+      if (iframe) {
+        iframe.src = iframe.src;
       }
     }
-
-    function posFromEvent(e){
-      const rect = canvas.getBoundingClientRect();
-      const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-      const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-      const w = rect.width; const h = rect.height;
-      const cs = cellSize;
-      const ox = (w - cs*(size-1))/2;
-      const oy = (h - cs*(size-1))/2;
-      let col = Math.round((x - ox)/cs);
-      let row = Math.round((y - oy)/cs);
-      if(row<0||col<0||row>=size||col>=size) return null;
-      return {r:row,c:col};
+    
+    // Function to open page in new tab
+    function openInNewTab(path) {
+      window.open(path, '_blank');
     }
-
-    function place(r,c,player){
-      if(board[r][c]!==0) return false;
-      board[r][c]=player;
-      moves.push({r,c,player});
-      draw();
-      const winner = checkWin(r,c,player);
-      if(winner){
-        onWin(player);
-      } else {
-        current = 3 - player;
-        updateStatus();
-      }
-      return true;
+    
+    // Initialize: create windows for all pages
+    function init() {
+      const container = document.getElementById('windowsContainer');
+      pages.forEach(page => {
+        const window = createWindow(page);
+        container.appendChild(window);
+      });
     }
-
-    function updateStatus(){
-      if(current===1) document.getElementById('status').innerText = 'Lượt: Người chơi (Đen)';
-      else document.getElementById('status').innerText = 'Lượt: Bot (Trắng)';
+    
+    // Run initialization when DOM is loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
     }
-
-    function checkWin(r,c,player){
-      // check 4 directions
-      const dirs = [[1,0],[0,1],[1,1],[1,-1]];
-      for(const [dr,dc] of dirs){
-        let cnt=1;
-        for(let s=1;s<5;s++){let rr=r+dr*s,cc=c+dc*s; if(rr<0||cc<0||rr>=size||cc>=size||board[rr][cc]!==player) break; cnt++;}
-        for(let s=1;s<5;s++){let rr=r-dr*s,cc=c-dc*s; if(rr<0||cc<0||rr>=size||cc>=size||board[rr][cc]!==player) break; cnt++;}
-        if(cnt>=5) return true;
-      }
-      return false;
-    }
-
-    // simple heuristic AI: score each empty cell by patterns both offensive and defensive
-    function aiMove(){
-      const scores = Array.from({length:size},()=>Array(size).fill(0));
-      for(let r=0;r<size;r++)for(let c=0;c<size;c++){
-        if(board[r][c]!==0) continue;
-        let score=0;
-        score += evaluateCell(r,c,2)*1.1; // offensive
-        score += evaluateCell(r,c,1); // block player
-        scores[r][c]=score;
-      }
-      let best=-1,br=0,bc=0;
-      for(let r=0;r<size;r++)for(let c=0;c<size;c++){
-        if(board[r][c]!==0) continue;
-        if(scores[r][c]>best){best=scores[r][c];br=r;bc=c}
-      }
-      place(br,bc,2);
-    }
-
-    function evaluateCell(r,c,player){
-      // looks in 4 directions and counts contiguous and open ends
-      const dirs = [[1,0],[0,1],[1,1],[1,-1]];
-      let total=0;
-      for(const [dr,dc] of dirs){
-        let cnt=1; let openEnds=0;
-        // forward
-        let s=1; for(;s<6;s++){let rr=r+dr*s,cc=c+dc*s; if(rr<0||cc<0||rr>=size||cc>=size) break; if(board[rr][cc]===player) cnt++; else if(board[rr][cc]===0){openEnds++; break;} else break;}
-        // backward
-        s=1; for(;s<6;s++){let rr=r-dr*s,cc=c-dc*s; if(rr<0||cc<0||rr>=size||cc>=size) break; if(board[rr][cc]===player) cnt++; else if(board[rr][cc]===0){openEnds++; break;} else break;}
-        // scoring heuristics
-        if(cnt>=5) total += 100000;
-        else if(cnt===4 && openEnds>0) total += 10000;
-        else if(cnt===3 && openEnds>0) total += 1000;
-        else if(cnt===2 && openEnds>0) total += 100;
-        else total += cnt*10;
-      }
-      return total;
-    }
-
-    function onWin(player){
-      const modal = document.getElementById('modal');
-      document.getElementById('modalTitle').innerText = (player===1? 'Người chơi thắng 🎉' : 'Bot thắng 😢');
-      document.getElementById('modalText').innerText = 'Kết thúc trận đấu.';
-      // default score suggestion: số nước đã đi
-      document.getElementById('playerName').value = player===1? 'Người chơi' : 'Bot';
-      document.getElementById('playerScore').value = moves.length;
-      modal.style.display='flex';
-    }
-
-    // UI events
-    window.addEventListener('resize',resizeCanvas);
-    canvas.addEventListener('click',function(e){
-      if(current!==1) return;
-      const p = posFromEvent(e); if(!p) return;
-      if(place(p.r,p.c,1)){
-        if(aiEnabled){ setTimeout(()=>{ if(!checkAnyWin()) aiMove(); },200)}
-      }
-    });
-    canvas.addEventListener('touchstart',function(e){e.preventDefault(); canvas.dispatchEvent(new MouseEvent('click',{clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}));});
-
-    function checkAnyWin(){
-      for(let r=0;r<size;r++)for(let c=0;c<size;c++){
-        if(board[r][c]!==0 && checkWin(r,c,board[r][c])) return true;
-      }
-      return false;
-    }
-
-    document.getElementById('newBtn').addEventListener('click',()=>{ initBoard(); });
-    document.getElementById('aiBtn').addEventListener('click',()=>{ aiEnabled = !aiEnabled; document.getElementById('aiMode').innerText = aiEnabled? 'Bật':'Tắt'; });
-    document.getElementById('playerFirst').addEventListener('change',()=>{ initBoard(); });
-    document.getElementById('botFirst').addEventListener('change',()=>{ initBoard(); });
-    document.getElementById('undoBtn').addEventListener('click',()=>{
-      if(moves.length===0) return; const last = moves.pop(); board[last.r][last.c]=0; // if last was player and ai on, pop again
-      if(moves.length>0 && moves[moves.length-1].player!==1){ const aiLast = moves.pop(); board[aiLast.r][aiLast.c]=0; }
-      current=1; draw(); updateStatus();
-    });
-
-    document.getElementById('saveScoreBtn').addEventListener('click',()=>{
-      const name = document.getElementById('playerName').value.trim()||'Người chơi';
-      const score = parseInt(document.getElementById('playerScore').value)||0;
-      saveScore(name,score);
-      document.getElementById('modal').style.display='none';
-      initBoard();
-    });
-    document.getElementById('dismissBtn').addEventListener('click',()=>{ document.getElementById('modal').style.display='none'; initBoard(); });
-
-    // leaderboard
-    function saveScore(name,score){
-      const key='caro_ebisol_scores_v1';
-      const arr = JSON.parse(localStorage.getItem(key)||'[]');
-      arr.push({name,score,date:new Date().toISOString()});
-      arr.sort((a,b)=>b.score - a.score);
-      localStorage.setItem(key,JSON.stringify(arr.slice(0,50)));
-      alert('Đã lưu điểm!');
-    }
-    document.getElementById('leaderBtn').addEventListener('click',()=>{ showLeaderboard(); });
-    function showLeaderboard(){
-      const key='caro_ebisol_scores_v1';
-      const arr = JSON.parse(localStorage.getItem(key)||'[]');
-      const tbody = document.querySelector('#leaderTable tbody'); tbody.innerHTML='';
-      arr.forEach((it,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${escapeHtml(it.name)}</td><td>${it.score}</td>`; tbody.appendChild(tr); });
-      document.getElementById('leaderModal').style.display='flex';
-    }
-    document.getElementById('closeLeaderBtn').addEventListener('click',()=>{ document.getElementById('leaderModal').style.display='none'; });
-    document.getElementById('clearScoresBtn').addEventListener('click',()=>{ if(confirm('Xóa tất cả điểm lưu?')){ localStorage.removeItem('caro_ebisol_scores_v1'); showLeaderboard(); }});
-
-    function escapeHtml(s){ return String(s).replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch])); }
-
-    // initial
-    document.getElementById('sizeBtn').addEventListener('click',()=>{
-      const newSize = prompt('Nhập kích thước bàn (ví dụ 15):', size);
-      const n = parseInt(newSize); if(n>=10 && n<=25){ size=n; document.getElementById('sizeLabel').innerText=size; document.getElementById('sizeLabel2').innerText=size; initBoard(); resizeCanvas(); } else alert('Kích thước hợp lệ: 10 - 25');
-    });
-
-    // kick off
-    initBoard();
-    setTimeout(resizeCanvas,50);
   </script>
 </body>
 </html>
